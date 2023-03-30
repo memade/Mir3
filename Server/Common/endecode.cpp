@@ -1,7 +1,3 @@
-// EnDecode.cpp : Defines the entry point for the DLL application.
-//
-
-
 #include "endecode.h"
 
 BYTE cTable_src[256] = {
@@ -97,252 +93,252 @@ static unsigned char Decode6BitMask[5] = { 0xfc, 0xf8, 0xf0, 0xe0, 0xc0 };
 
 /* **************************************************************************************
 
-		Encode/Decode Routine for ANSI character
+  Encode/Decode Routine for ANSI character
 
    ************************************************************************************** */
-int WINAPI fnEncode6BitBuf(unsigned char *pszSrc, char *pszDest, int nSrcLen, int nDestLen)
+int WINAPI fnEncode6BitBuf(unsigned char* pszSrc, char* pszDest, int nSrcLen, int nDestLen)
 {
-	int				nDestPos	= 0;
-	int				nRestCount	= 0;
-	unsigned char	chMade = 0, chRest = 0;
-	unsigned char	ch1 =0;
+ int				nDestPos = 0;
+ int				nRestCount = 0;
+ unsigned char	chMade = 0, chRest = 0;
+ unsigned char	ch1 = 0;
 
-	for (int i = 0; i < nSrcLen; i++)
-	{
-		if (nDestPos >= nDestLen) break;
+ for (int i = 0; i < nSrcLen; i++)
+ {
+  if (nDestPos >= nDestLen) break;
 
 #ifdef _NEWENCMODE
-		//---------------------------------------------------------------------
-		// 치환
-		ch1 = pszSrc[i];
+  //---------------------------------------------------------------------
+  // 치환
+  ch1 = pszSrc[i];
 
-		__asm {
-			push edx
-			mov dl , ch1
-			rol	dl , 3
-			mov ch1 , dl
-			pop edx
-		}
+  __asm {
+   push edx
+   mov dl, ch1
+   rol	dl, 3
+   mov ch1, dl
+   pop edx
+  }
 
-		ch1 = (unsigned char)(( cTable_src[ ch1 ] ^ g_HideTable ) ^ cXorValue);   // added by sonmg
+  ch1 = (unsigned char)((cTable_src[ch1] ^ g_HideTable) ^ cXorValue);   // added by sonmg
 
-		// XOR 연산
-		pszSrc[i] = (unsigned char)(ch1 ^ ( HIBYTE(g_EndeKey) + LOBYTE(g_EndeKey) ));   // added by sonmg
-		//---------------------------------------------------------------------
+  // XOR 연산
+  pszSrc[i] = (unsigned char)(ch1 ^ (HIBYTE(g_EndeKey) + LOBYTE(g_EndeKey)));   // added by sonmg
+  //---------------------------------------------------------------------
 #endif
 
-		chMade = (unsigned char)((chRest | (pszSrc[i] >> (2 + nRestCount))) & 0x3f);
-		chRest = (unsigned char)(((pszSrc[i] << (8 - (2 + nRestCount))) >> 2) & 0x3f);
+  chMade = (unsigned char)((chRest | (pszSrc[i] >> (2 + nRestCount))) & 0x3f);
+  chRest = (unsigned char)(((pszSrc[i] << (8 - (2 + nRestCount))) >> 2) & 0x3f);
 
-		nRestCount += 2;
+  nRestCount += 2;
 
-		if (nRestCount < 6)
-			pszDest[nDestPos++] = (char)(chMade + 0x3c);
-		else
-		{
-			if (nDestPos < nDestLen - 1)
-			{
-				pszDest[nDestPos++]	= (char)(chMade + 0x3c);
-				pszDest[nDestPos++]	= (char)(chRest + 0x3c);
-			}
-			else
-				pszDest[nDestPos++] = (char)(chMade + 0x3c);
+  if (nRestCount < 6)
+   pszDest[nDestPos++] = (char)(chMade + 0x3c);
+  else
+  {
+   if (nDestPos < nDestLen - 1)
+   {
+    pszDest[nDestPos++] = (char)(chMade + 0x3c);
+    pszDest[nDestPos++] = (char)(chRest + 0x3c);
+   }
+   else
+    pszDest[nDestPos++] = (char)(chMade + 0x3c);
 
-			nRestCount	= 0;
-			chRest		= 0;
-		}
-	}
+   nRestCount = 0;
+   chRest = 0;
+  }
+ }
 
-	if (nRestCount > 0)
-		pszDest[nDestPos++] = (char)(chRest + 0x3c);
+ if (nRestCount > 0)
+  pszDest[nDestPos++] = (char)(chRest + 0x3c);
 
-//	pszDest[nDestPos] = '\0';
+ //	pszDest[nDestPos] = '\0';
 
-	return nDestPos;
+ return nDestPos;
 }
 
-int  WINAPI fnDecode6BitBuf(char *pszSrc, char *pszDest, int nDestLen)
+int  WINAPI fnDecode6BitBuf(char* pszSrc, char* pszDest, int nDestLen)
 {
-	int				nLen = strlen((const char *)pszSrc);
-	int				nDestPos = 0, nBitPos = 2;
-	int				nMadeBit = 0;
-	unsigned char	ch, chCode, tmp = 0;
+ int				nLen = strlen((const char*)pszSrc);
+ int				nDestPos = 0, nBitPos = 2;
+ int				nMadeBit = 0;
+ unsigned char	ch, chCode, tmp = 0;
 
-	for (int i = 0; i < nLen; i++)
-	{
-		if ( ((pszSrc[i] - 0x3c) >= 0) && ((pszSrc[i] - 0x3c) <= 64) )
-			ch = (unsigned char)(pszSrc[i] - 0x3c);
-		else
-		{
-			nDestPos = 0;
-			break;
-		}
+ for (int i = 0; i < nLen; i++)
+ {
+  if (((pszSrc[i] - 0x3c) >= 0) && ((pszSrc[i] - 0x3c) <= 64))
+   ch = (unsigned char)(pszSrc[i] - 0x3c);
+  else
+  {
+   nDestPos = 0;
+   break;
+  }
 
-		if (nDestPos >= nDestLen) break;
+  if (nDestPos >= nDestLen) break;
 
-		if ((nMadeBit + 6) >= 8)
-		{
-			chCode = (unsigned char)(tmp | ((ch & 0x3f) >> (6 - nBitPos)));
+  if ((nMadeBit + 6) >= 8)
+  {
+   chCode = (unsigned char)(tmp | ((ch & 0x3f) >> (6 - nBitPos)));
 
 #ifdef _NEWENCMODE
-			//---------------------------------------------------------------------
-			// XOR 연산
-			chCode = chCode ^ (unsigned char)( HIBYTE(g_EndeKey) + LOBYTE(g_EndeKey) );   // added by sonmg
+   //---------------------------------------------------------------------
+   // XOR 연산
+   chCode = chCode ^ (unsigned char)(HIBYTE(g_EndeKey) + LOBYTE(g_EndeKey));   // added by sonmg
 
-			// 역치환
-			chCode = chCode ^ cXorValue;   // added by sonmg
-			chCode = (unsigned char)(cTable_return[ chCode ] ^ g_HideBackTable);   // added by sonmg
+   // 역치환
+   chCode = chCode ^ cXorValue;   // added by sonmg
+   chCode = (unsigned char)(cTable_return[chCode] ^ g_HideBackTable);   // added by sonmg
 
-			__asm {
-				push edx
-				mov dl , chCode
-				ror	dl , 3
-				mov chCode , dl
-				pop edx
-			}
-			//---------------------------------------------------------------------
+   __asm {
+    push edx
+    mov dl, chCode
+    ror	dl, 3
+    mov chCode, dl
+    pop edx
+   }
+   //---------------------------------------------------------------------
 #endif
 
-			pszDest[nDestPos++] = chCode;
+   pszDest[nDestPos++] = chCode;
 
-			nMadeBit = 0;
+   nMadeBit = 0;
 
-			if (nBitPos < 6) 
-				nBitPos += 2;
-			else
-			{
-				nBitPos = 2;
-				continue;
-			}
-		}
+   if (nBitPos < 6)
+    nBitPos += 2;
+   else
+   {
+    nBitPos = 2;
+    continue;
+   }
+  }
 
-		tmp = (unsigned char)((ch << nBitPos) & Decode6BitMask[nBitPos - 2]);
+  tmp = (unsigned char)((ch << nBitPos) & Decode6BitMask[nBitPos - 2]);
 
-		nMadeBit += (8 - nBitPos);
-	}
+  nMadeBit += (8 - nBitPos);
+ }
 
-//	pszDest[nDestPos] = '\0';
+ //	pszDest[nDestPos] = '\0';
 
-	return nDestPos;
+ return nDestPos;
 }
 
-int WINAPI fnEncode6BitBuf_old(unsigned char *pszSrc, char *pszDest, int nSrcLen, int nDestLen)
+int WINAPI fnEncode6BitBuf_old(unsigned char* pszSrc, char* pszDest, int nSrcLen, int nDestLen)
 {
-	int				nDestPos	= 0;
-	int				nRestCount	= 0;
-	unsigned char	chMade = 0, chRest = 0;
+ int				nDestPos = 0;
+ int				nRestCount = 0;
+ unsigned char	chMade = 0, chRest = 0;
 
-	for (int i = 0; i < nSrcLen; i++)
-	{
-		if (nDestPos >= nDestLen) break;
-		
-		chMade = (unsigned char)((chRest | (pszSrc[i] >> (2 + nRestCount))) & 0x3f);
-		chRest = (unsigned char)(((pszSrc[i] << (8 - (2 + nRestCount))) >> 2) & 0x3f);
+ for (int i = 0; i < nSrcLen; i++)
+ {
+  if (nDestPos >= nDestLen) break;
 
-		nRestCount += 2;
+  chMade = (unsigned char)((chRest | (pszSrc[i] >> (2 + nRestCount))) & 0x3f);
+  chRest = (unsigned char)(((pszSrc[i] << (8 - (2 + nRestCount))) >> 2) & 0x3f);
 
-		if (nRestCount < 6)
-			pszDest[nDestPos++] = (char)(chMade + 0x3c);
-		else
-		{
-			if (nDestPos < nDestLen - 1)
-			{
-				pszDest[nDestPos++]	= (char)(chMade + 0x3c);
-				pszDest[nDestPos++]	= (char)(chRest + 0x3c);
-			}
-			else
-				pszDest[nDestPos++] = (char)(chMade + 0x3c);
+  nRestCount += 2;
 
-			nRestCount	= 0;
-			chRest		= 0;
-		}
-	}
+  if (nRestCount < 6)
+   pszDest[nDestPos++] = (char)(chMade + 0x3c);
+  else
+  {
+   if (nDestPos < nDestLen - 1)
+   {
+    pszDest[nDestPos++] = (char)(chMade + 0x3c);
+    pszDest[nDestPos++] = (char)(chRest + 0x3c);
+   }
+   else
+    pszDest[nDestPos++] = (char)(chMade + 0x3c);
 
-	if (nRestCount > 0)
-		pszDest[nDestPos++] = (char)(chRest + 0x3c);
+   nRestCount = 0;
+   chRest = 0;
+  }
+ }
 
-//	pszDest[nDestPos] = '\0';
+ if (nRestCount > 0)
+  pszDest[nDestPos++] = (char)(chRest + 0x3c);
 
-	return nDestPos;
+ //	pszDest[nDestPos] = '\0';
+
+ return nDestPos;
 }
 
-int  WINAPI fnDecode6BitBuf_old(char *pszSrc, char *pszDest, int nDestLen)
+int  WINAPI fnDecode6BitBuf_old(char* pszSrc, char* pszDest, int nDestLen)
 {
-	int				nLen = strlen((const char *)pszSrc);
-	int				nDestPos = 0, nBitPos = 2;
-	int				nMadeBit = 0;
-	unsigned char	ch, chCode, tmp = 0;
+ int				nLen = strlen((const char*)pszSrc);
+ int				nDestPos = 0, nBitPos = 2;
+ int				nMadeBit = 0;
+ unsigned char	ch, chCode, tmp = 0;
 
-	for (int i = 0; i < nLen; i++)
-	{
-		if ((pszSrc[i] - 0x3c) >= 0)
-			ch = (unsigned char)(pszSrc[i] - 0x3c);
-		else
-		{
-			nDestPos = 0;
-			break;
-		}
+ for (int i = 0; i < nLen; i++)
+ {
+  if ((pszSrc[i] - 0x3c) >= 0)
+   ch = (unsigned char)(pszSrc[i] - 0x3c);
+  else
+  {
+   nDestPos = 0;
+   break;
+  }
 
-		if (nDestPos >= nDestLen) break;
+  if (nDestPos >= nDestLen) break;
 
-		if ((nMadeBit + 6) >= 8)
-		{
-			chCode = (unsigned char)(tmp | ((ch & 0x3f) >> (6 - nBitPos)));
-			pszDest[nDestPos++] = chCode;
+  if ((nMadeBit + 6) >= 8)
+  {
+   chCode = (unsigned char)(tmp | ((ch & 0x3f) >> (6 - nBitPos)));
+   pszDest[nDestPos++] = chCode;
 
-			nMadeBit = 0;
+   nMadeBit = 0;
 
-			if (nBitPos < 6) 
-				nBitPos += 2;
-			else
-			{
-				nBitPos = 2;
-				continue;
-			}
-		}
+   if (nBitPos < 6)
+    nBitPos += 2;
+   else
+   {
+    nBitPos = 2;
+    continue;
+   }
+  }
 
-		tmp = (unsigned char)((ch << nBitPos) & Decode6BitMask[nBitPos - 2]);
+  tmp = (unsigned char)((ch << nBitPos) & Decode6BitMask[nBitPos - 2]);
 
-		nMadeBit += (8 - nBitPos);
-	}
+  nMadeBit += (8 - nBitPos);
+ }
 
-//	pszDest[nDestPos] = '\0';
+ //	pszDest[nDestPos] = '\0';
 
-	return nDestPos;
+ return nDestPos;
 }
 
-int WINAPI fnEncodeMessage(_LPTDEFAULTMESSAGE lptdm, char *pszBuf, int nLen)
-{ 
-	return fnEncode6BitBuf((unsigned char *)lptdm, pszBuf, sizeof(_TDEFAULTMESSAGE), nLen); 
-}
-
-
-CDecodedString * WINAPI fnDecodeString( char *src )
+int WINAPI fnEncodeMessage(_LPTDEFAULTMESSAGE lptdm, char* pszBuf, int nLen)
 {
-	int destLen = int( (strlen( src )) * 3 / 4 ) + 2;
-
-	CDecodedString *d = new CDecodedString( destLen );
-	d->m_pData[ fnDecode6BitBuf( src, d->m_pData, destLen ) ] = '\0';
-
-	return d;
+ return fnEncode6BitBuf((unsigned char*)lptdm, pszBuf, sizeof(_TDEFAULTMESSAGE), nLen);
 }
 
-void ChangeSpaceToNull(char *pszData)
+
+CDecodedString* WINAPI fnDecodeString(char* src)
 {
-	char *pszCheck = pszData;
+ int destLen = int((strlen(src)) * 3 / 4) + 2;
 
-	if (pszCheck)
-	{
-		while (*pszCheck)
-		{
-			if (*pszCheck == 0x20 && *(pszCheck + 1) == 0x20)
-			{
-				*pszCheck = '\0';
-				return;
-			}
+ CDecodedString* d = new CDecodedString(destLen);
+ d->m_pData[fnDecode6BitBuf(src, d->m_pData, destLen)] = '\0';
 
-			pszCheck++;
-		}
-	}
+ return d;
+}
+
+void ChangeSpaceToNull(char* pszData)
+{
+ char* pszCheck = pszData;
+
+ if (pszCheck)
+ {
+  while (*pszCheck)
+  {
+   if (*pszCheck == 0x20 && *(pszCheck + 1) == 0x20)
+   {
+    *pszCheck = '\0';
+    return;
+   }
+
+   pszCheck++;
+  }
+ }
 }
 

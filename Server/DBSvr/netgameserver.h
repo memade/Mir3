@@ -1,5 +1,3 @@
-
-
 #ifndef __ORZ_MIR2_GAME_SERVER__
 #define __ORZ_MIR2_GAME_SERVER__
 
